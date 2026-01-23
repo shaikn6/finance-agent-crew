@@ -1,10 +1,10 @@
 """Tests for src/agents/fundamental_analyst.py — FundamentalAnalystAgent."""
+
 from __future__ import annotations
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 from src.models.schemas import Signal
 from src.agents.fundamental_analyst import (
@@ -78,11 +78,14 @@ def _make_claude_client(signal="BUY", reasoning="Strong fundamentals."):
 # FundamentalAnalystAgent.analyze
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestFundamentalAnalystAgentAnalyze:
     async def test_full_analysis_returns_buy_signal(self):
         agent = FundamentalAnalystAgent()
-        agent._client = _make_claude_client("BUY", "Apple has strong margins and solid balance sheet.")
+        agent._client = _make_claude_client(
+            "BUY", "Apple has strong margins and solid balance sheet."
+        )
 
         analysis = await agent.analyze(RAW_DATA_FULL)
         assert analysis.ticker == "AAPL"
@@ -198,12 +201,17 @@ class TestFundamentalAnalystAgentAnalyze:
 # _build_fundamental_prompt
 # ---------------------------------------------------------------------------
 
+
 class TestBuildFundamentalPrompt:
     def test_contains_ticker(self):
         prompt = _build_fundamental_prompt(
             "AAPL",
             {"pe_ratio": 29.5, "roe": 45.2},
-            {"sector": "Technology", "industry": "Consumer Electronics", "market_cap": 2e12},
+            {
+                "sector": "Technology",
+                "industry": "Consumer Electronics",
+                "market_cap": 2e12,
+            },
             {},
         )
         assert "AAPL" in prompt
@@ -220,9 +228,7 @@ class TestBuildFundamentalPrompt:
         assert "pe_ratio" not in prompt or "null" not in prompt
 
     def test_market_cap_formatted(self):
-        prompt = _build_fundamental_prompt(
-            "T", {}, {"market_cap": 1000000000000.0}, {}
-        )
+        prompt = _build_fundamental_prompt("T", {}, {"market_cap": 1000000000000.0}, {})
         assert "$" in prompt
         assert "B" in prompt
 
@@ -234,6 +240,7 @@ class TestBuildFundamentalPrompt:
 # ---------------------------------------------------------------------------
 # _parse_signal_response
 # ---------------------------------------------------------------------------
+
 
 class TestParseSignalResponse:
     def test_parses_buy_signal(self):
@@ -253,9 +260,9 @@ class TestParseSignalResponse:
         assert signal == Signal.HOLD
 
     def test_strips_markdown_code_fences(self):
-        raw = "```json
-" + json.dumps({"signal": "BUY", "reasoning": "Good."}) + "
-```"
+        raw = (
+            "```json\n" + json.dumps({"signal": "BUY", "reasoning": "Good."}) + "\n```"
+        )
         signal, reasoning = _parse_signal_response(raw)
         assert signal == Signal.BUY
 
@@ -284,6 +291,7 @@ class TestParseSignalResponse:
 # ---------------------------------------------------------------------------
 # Math helpers
 # ---------------------------------------------------------------------------
+
 
 class TestPct:
     def test_small_value_multiplied(self):
