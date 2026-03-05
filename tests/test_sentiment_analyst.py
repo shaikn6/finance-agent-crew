@@ -1,10 +1,10 @@
 """Tests for src/agents/sentiment_analyst.py — SentimentAnalystAgent."""
+
 from __future__ import annotations
 
 import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timezone
 
 from src.models.schemas import Tone
 from src.agents.sentiment_analyst import (
@@ -25,7 +25,10 @@ RAW_DATA_FULL = {
         {"title": "AAPL Beats Revenue Estimates by 8%", "url": "https://example.com/2"},
         {"title": "Apple CEO Highlights AI Roadmap", "url": "https://example.com/3"},
         {"title": "iPhone 16 Sales Exceed Forecasts", "url": "https://example.com/4"},
-        {"title": "Apple Services Revenue Hits All-Time High", "url": "https://example.com/5"},
+        {
+            "title": "Apple Services Revenue Hits All-Time High",
+            "url": "https://example.com/5",
+        },
     ],
     "earnings_snippets": [
         "We are incredibly pleased with our Q4 results, exceeding expectations on every metric.",
@@ -41,7 +44,10 @@ RAW_DATA_EMPTY = {
 
 RAW_DATA_NO_TITLES = {
     "ticker": "NOTIT",
-    "news_headlines": [{"url": "https://example.com/1"}, {"url": "https://example.com/2"}],
+    "news_headlines": [
+        {"url": "https://example.com/1"},
+        {"url": "https://example.com/2"},
+    ],
     "earnings_snippets": [],
 }
 
@@ -77,6 +83,7 @@ def _make_claude_client(response_data=None):
 # ---------------------------------------------------------------------------
 # SentimentAnalystAgent.analyze
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestSentimentAnalystAgentAnalyze:
@@ -213,6 +220,7 @@ class TestSentimentAnalystAgentAnalyze:
 # _build_sentiment_prompt
 # ---------------------------------------------------------------------------
 
+
 class TestBuildSentimentPrompt:
     def test_contains_ticker(self):
         prompt = _build_sentiment_prompt("AAPL", ["Headline 1"], ["Snippet 1"])
@@ -251,6 +259,7 @@ class TestBuildSentimentPrompt:
 # _parse_json_response
 # ---------------------------------------------------------------------------
 
+
 class TestParseJsonResponse:
     def test_parses_valid_json(self):
         raw = json.dumps(CLAUDE_POSITIVE_RESPONSE)
@@ -259,16 +268,12 @@ class TestParseJsonResponse:
         assert result["news_sentiment_score"] == 0.75
 
     def test_strips_markdown_code_fences(self):
-        raw = "```json
-" + json.dumps(CLAUDE_POSITIVE_RESPONSE) + "
-```"
+        raw = "```json\n" + json.dumps(CLAUDE_POSITIVE_RESPONSE) + "\n```"
         result = _parse_json_response(raw)
         assert result["management_tone"] == "positive"
 
     def test_strips_plain_code_fences(self):
-        raw = "```
-" + json.dumps(CLAUDE_POSITIVE_RESPONSE) + "
-```"
+        raw = "```\n" + json.dumps(CLAUDE_POSITIVE_RESPONSE) + "\n```"
         result = _parse_json_response(raw)
         assert result["management_tone"] == "positive"
 
