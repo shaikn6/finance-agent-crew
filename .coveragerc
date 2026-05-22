@@ -1,0 +1,13 @@
+[run]
+source = src
+omit =
+    src/graph/__init__.py
+
+[report]
+fail_under = 95
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    if TYPE_CHECKING:

@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
-
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -87,9 +85,7 @@ class RiskAssessment(BaseModel):
     """Output of the RiskAssessorAgent."""
 
     ticker: str
-    overall_risk_level: str = Field(
-        "medium", description="low | medium | high | critical"
-    )
+    overall_risk_level: str = Field("medium", description="low | medium | high | critical")
     risk_factors: list[RiskFactor] = Field(default_factory=list)
     beta: float | None = None
     volatility_30d: float | None = None
@@ -132,17 +128,14 @@ class InvestmentReport(BaseModel):
         "Always consult a qualified financial advisor before making investment decisions."
     )
 
-    @field_validator("upside_potential", mode="before")
-    @classmethod
-    def compute_upside(cls, v: Any, info: Any) -> float | None:  # noqa: ANN401
-        if v is not None:
-            return v
-        values = info.data
-        current = values.get("current_price")
-        target = values.get("target_price")
-        if current and target and current > 0:
-            return round(((target - current) / current) * 100, 2)
-        return None
+    @model_validator(mode="after")
+    def compute_upside(self) -> InvestmentReport:
+        if self.upside_potential is None:
+            current = self.current_price
+            target = self.target_price
+            if current and target and current > 0:
+                self.upside_potential = round(((target - current) / current) * 100, 2)
+        return self
 
 
 # ---------------------------------------------------------------------------
