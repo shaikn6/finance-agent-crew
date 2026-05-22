@@ -1,11 +1,11 @@
 """Tests for src/tools/news_fetcher.py — NewsFetcher."""
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
-
+import pytest
 from src.tools.news_fetcher import (
     NewsFetcher,
     _extract_ddg_url,
@@ -13,10 +13,10 @@ from src.tools.news_fetcher import (
     _tag_text,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_response(text_data="", status_code=200):
     resp = MagicMock(spec=httpx.Response)
@@ -78,6 +78,7 @@ INVALID_PUBDATE_RSS = """<?xml version="1.0" encoding="UTF-8"?>
 # Context manager
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestNewsFetcherContextManager:
     async def test_aenter_aexit(self):
@@ -96,6 +97,7 @@ class TestNewsFetcherContextManager:
 # ---------------------------------------------------------------------------
 # fetch_headlines (DuckDuckGo + Yahoo RSS)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestFetchHeadlines:
@@ -171,10 +173,49 @@ class TestFetchHeadlines:
         headlines = await fetcher.fetch_headlines("AAPL")
         assert isinstance(headlines, list)
 
+    async def test_ddg_result_missing_title_el_skipped(self):
+        html = """<html><body>
+        <div class="result"></div>
+        <div class="result">
+          <h2 class="result__title"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2F">Good Result</a></h2>
+          <div class="result__snippet">Good snippet.</div>
+        </div>
+        </body></html>"""
+        fetcher = NewsFetcher()
+        fetcher._client = AsyncMock()
+        fetcher._client.aclose = AsyncMock()
+        fetcher._client.post = AsyncMock(return_value=_mock_response(html))
+        fetcher._client.get = AsyncMock(return_value=_mock_response(status_code=404))
+
+        headlines = await fetcher.fetch_headlines("AAPL", max_results=10)
+        # The result without title_el is skipped; only the good one appears
+        assert len(headlines) == 1
+
+    async def test_ddg_result_empty_url_skipped(self):
+        html = """<html><body>
+        <div class="result">
+          <h2 class="result__title"><a class="result__a" href="//duckduckgo.com/l/">No URL Result</a></h2>
+        </div>
+        <div class="result">
+          <h2 class="result__title"><a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2F">Good</a></h2>
+        </div>
+        </body></html>"""
+        fetcher = NewsFetcher()
+        fetcher._client = AsyncMock()
+        fetcher._client.aclose = AsyncMock()
+        fetcher._client.post = AsyncMock(return_value=_mock_response(html))
+        fetcher._client.get = AsyncMock(return_value=_mock_response(status_code=404))
+
+        headlines = await fetcher.fetch_headlines("AAPL", max_results=10)
+        # Result with empty URL is skipped
+        urls = [h["url"] for h in headlines]
+        assert all(url for url in urls)
+
 
 # ---------------------------------------------------------------------------
 # fetch_earnings_snippets
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestFetchEarningsSnippets:
@@ -203,6 +244,7 @@ class TestFetchEarningsSnippets:
 # ---------------------------------------------------------------------------
 # Yahoo RSS parsing
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestYahooRSS:
@@ -268,6 +310,7 @@ class TestYahooRSS:
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
+
 class TestExtractDDGUrl:
     def test_decodes_uddg_param(self):
         href = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.example.com%2Fpath"
@@ -301,10 +344,12 @@ class TestExtractDomain:
 class TestTagText:
     def test_extracts_text(self):
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup("<item><title>Hello</title></item>", "xml")
         assert _tag_text(soup.find("item"), "title") == "Hello"
 
     def test_missing_tag_returns_empty(self):
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup("<item></item>", "xml")
         assert _tag_text(soup.find("item"), "title") == ""

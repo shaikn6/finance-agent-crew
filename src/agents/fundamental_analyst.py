@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import anthropic
@@ -29,9 +29,7 @@ class FundamentalAnalystAgent:
 
     def __init__(self, model: str | None = None) -> None:
         self._model = model or _DEFAULT_MODEL
-        self._client = anthropic.AsyncAnthropic(
-            api_key=os.environ.get("ANTHROPIC_API_KEY")
-        )
+        self._client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     async def analyze(self, raw_data: dict[str, Any]) -> FundamentalAnalysis:
         """Run fundamental analysis on gathered raw data.
@@ -97,7 +95,7 @@ class FundamentalAnalystAgent:
             current_ratio=current_ratio,
             signal=signal,
             reasoning=reasoning,
-            data_as_of=datetime.now(tz=timezone.utc),
+            data_as_of=datetime.now(tz=UTC),
         )
 
     # ------------------------------------------------------------------
@@ -137,9 +135,7 @@ def _build_fundamental_prompt(
     overview: dict[str, Any],
     sec: dict[str, Any],
 ) -> str:
-    ratios_str = json.dumps(
-        {k: v for k, v in ratios.items() if v is not None}, indent=2
-    )
+    ratios_str = json.dumps({k: v for k, v in ratios.items() if v is not None}, indent=2)
     sector = overview.get("sector", "Unknown")
     industry = overview.get("industry", "Unknown")
     market_cap = overview.get("market_cap")
@@ -171,19 +167,11 @@ Only output valid JSON, nothing else."""
 def _parse_signal_response(raw: str) -> tuple[Signal, str]:
     try:
         # Strip markdown code fences if present
-        clean = (
-            raw.strip()
-            .removeprefix("```json")
-            .removeprefix("```")
-            .removesuffix("```")
-            .strip()
-        )
+        clean = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         data = json.loads(clean)
         signal_str = data.get("signal", "INSUFFICIENT_DATA").upper()
         signal = (
-            Signal(signal_str)
-            if signal_str in Signal.__members__
-            else Signal.INSUFFICIENT_DATA
+            Signal(signal_str) if signal_str in Signal.__members__ else Signal.INSUFFICIENT_DATA
         )
         reasoning = data.get("reasoning", "")
         return signal, reasoning
@@ -216,7 +204,14 @@ def _ratio(numerator: float | None, denominator: float | None) -> float | None:
 
 
 def _cagr(revenue_history: list[dict[str, Any]], years: int = 3) -> float | None:
-    """Calculate revenue CAGR from SEC history (most recent first)."""
+    """Calculate revenue CAGR from SEC history using actual date span.
+
+    Sorts entries by period_end, uses the last N+1 entries (where N = min(years,
+    available intervals)), and derives the exponent from the actual number of years
+    between the oldest and newest date strings (YYYY-MM-DD).
+    """
+    from datetime import date as _date
+
     if len(revenue_history) < 2:
         return None
     sorted_history = sorted(revenue_history, key=lambda x: x.get("period_end", ""))
@@ -224,9 +219,21 @@ def _cagr(revenue_history: list[dict[str, Any]], years: int = 3) -> float | None
         return None
     # Use the last N+1 entries to get N years of growth
     n = min(years, len(sorted_history) - 1)
-    latest = sorted_history[-1].get("value")
-    oldest = sorted_history[-(n + 1)].get("value")
+    latest_entry = sorted_history[-1]
+    oldest_entry = sorted_history[-(n + 1)]
+    latest = latest_entry.get("value")
+    oldest = oldest_entry.get("value")
     if not latest or not oldest or oldest <= 0:
         return None
-    cagr = ((latest / oldest) ** (1 / n) - 1) * 100
+    # Derive the actual year span from the date strings so that the exponent
+    # reflects real elapsed time rather than the number of list intervals.
+    try:
+        latest_date = _date.fromisoformat(str(latest_entry["period_end"]))
+        oldest_date = _date.fromisoformat(str(oldest_entry["period_end"]))
+        actual_years = (latest_date - oldest_date).days / 365.25
+    except (KeyError, ValueError):
+        actual_years = float(n)
+    if actual_years <= 0:
+        return None
+    cagr = ((latest / oldest) ** (1 / actual_years) - 1) * 100
     return round(cagr, 2)
