@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/banner.png" alt="finance-agent-crew" width="100%"></p>
+
 <div align="center">
 
 # Finance Agent Crew
