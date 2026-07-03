@@ -3,7 +3,7 @@ name = "finance-agent-crew"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.112.0",
+    "anthropic>=0.116.0",
     "langgraph>=1.2.6",
     "langchain-anthropic>=1.4.7",
     "fastapi>=0.138.1",
