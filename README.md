@@ -4,6 +4,7 @@
 
 # Finance Agent Crew
 
+[![CI](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![Pydantic](https://img.shields.io/badge/Pydantic-v2-e92063)](https://docs.pydantic.dev/)
 [![Anthropic](https://img.shields.io/badge/Claude-Haiku-d97757)](https://docs.anthropic.com/)
