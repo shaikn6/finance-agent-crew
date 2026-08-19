@@ -43,8 +43,9 @@ class RiskAssessorAgent:
             f"Market data: {json.dumps(overview, default=str)}\n"
             f"Financials: {json.dumps(sec, default=str)}\n\n"
             "Respond with a JSON object:\n"
-            '{"risk_factors": [{"name": "...", "description": "...", "severity": "LOW|MEDIUM|HIGH"}], '
-            '"overall_risk_score": 0.0, "summary": "..."}'
+            '{"risk_factors": [{"category": "market|regulatory|competitive|operational|macro", '
+            '"description": "...", "severity": "low|medium|high|critical", "probability": "low|medium|high"}], '
+            '"overall_risk_level": "low|medium|high|critical", "key_risks_summary": "..."}'
         )
 
         message = await self._client.messages.create(
@@ -64,25 +65,27 @@ def _parse_risk_response(raw: str, ticker: str) -> RiskAssessment:
         text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
         data = json.loads(text)
-        factors = [
-            RiskFactor(
-                name=f.get("name", "Unknown"),
-                description=f.get("description", ""),
-                severity=f.get("severity", "MEDIUM"),
-            )
-            for f in data.get("risk_factors", [])
-        ]
-        return RiskAssessment(
-            ticker=ticker,
-            risk_factors=factors,
-            overall_risk_score=float(data.get("overall_risk_score", 0.5)),
-            summary=data.get("summary", ""),
-        )
-    except (json.JSONDecodeError, KeyError, ValueError):
+    except json.JSONDecodeError:
         logger.warning("Failed to parse risk response for %s", ticker)
         return RiskAssessment(
             ticker=ticker,
             risk_factors=[],
-            overall_risk_score=0.5,
-            summary="Risk assessment unavailable.",
+            overall_risk_level="medium",
+            key_risks_summary="Risk assessment unavailable.",
         )
+
+    factors = [
+        RiskFactor(
+            category=f.get("category", "market"),
+            description=f.get("description", ""),
+            severity=f.get("severity", "medium"),
+            probability=f.get("probability", "medium"),
+        )
+        for f in data.get("risk_factors", [])
+    ]
+    return RiskAssessment(
+        ticker=ticker,
+        risk_factors=factors,
+        overall_risk_level=data.get("overall_risk_level", "medium"),
+        key_risks_summary=data.get("key_risks_summary", ""),
+    )
