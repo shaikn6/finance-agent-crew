@@ -5,15 +5,15 @@ All notable changes to this project are documented here.
 ## [1.0.0] - 2026-06-16
 
 ### Added
-- LangGraph multi-agent system ingesting SEC filings, earnings call transcripts, and live financial news
-- SEC EDGAR adapter fetching 10-K, 10-Q, and 8-K documents with structured section extraction
-- Earnings call parser identifying guidance, risk factors, and management sentiment shifts
-- Investment research brief generator producing structured buy/hold/sell analysis with evidence citations
-- n8n webhook integration routing completed research briefs to Slack, email, and CRM destinations
-- Portfolio-level aggregation view consolidating signals across multiple tickers into a single dashboard
+- Deterministic asyncio fan-out/fan-in pipeline: `DataGathererAgent` runs data tools concurrently, three independent analyst agents each make a single structured Claude call, and `ReportWriterAgent` synthesizes the results into a final `InvestmentReport`
+- SEC EDGAR scraper fetching recent filings via the Atom feed
+- Yahoo Finance news fetcher parsing RSS headlines and descriptions
+- Market data tool for fundamental metrics (P/E, margins, growth, leverage ratios)
+- `FundamentalAnalystAgent`, `SentimentAnalystAgent`, and `RiskAssessorAgent` producing structured, schema-validated analyses via Claude
+- Non-fatal error handling: failed external calls are captured in an `errors` list rather than aborting the run
 
 ### Changed
 - Production-ready CI/CD with 95%+ test coverage enforcement
 
 ### Security
-- Financial data cached locally; no customer portfolio data or trade instructions are processed by the agent
+- No customer portfolio data or trade instructions are processed by the agent; all inputs are public market data, SEC filings, and news
