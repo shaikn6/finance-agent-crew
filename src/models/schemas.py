@@ -81,6 +81,14 @@ class RiskFactor(BaseModel):
     probability: str  # low | medium | high
 
 
+_RISK_LEVEL_SCORES: dict[str, float] = {
+    "low": 0.25,
+    "medium": 0.5,
+    "high": 0.75,
+    "critical": 1.0,
+}
+
+
 class RiskAssessment(BaseModel):
     """Output of the RiskAssessorAgent."""
 
@@ -93,6 +101,11 @@ class RiskAssessment(BaseModel):
     key_risks_summary: str = ""
     mitigating_factors: list[str] = Field(default_factory=list)
     assessed_at: datetime | None = None
+
+    @property
+    def overall_risk_score(self) -> float:
+        """Numeric risk score in [0, 1] derived from ``overall_risk_level``."""
+        return _RISK_LEVEL_SCORES.get(self.overall_risk_level.lower(), 0.5)
 
 
 class InvestmentReport(BaseModel):

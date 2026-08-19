@@ -67,7 +67,7 @@ class ReportWriterAgent:
             )
         if sentiment:
             prompt_parts.append(
-                f"Sentiment: {sentiment.overall_sentiment_score:.2f}, tone: {sentiment.management_tone}"
+                f"Sentiment: {sentiment.news_sentiment_score:.2f}, tone: {sentiment.management_tone}"
             )
         if risk:
             prompt_parts.append(f"Risk score: {risk.overall_risk_score:.2f}")
