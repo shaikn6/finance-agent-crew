@@ -118,7 +118,7 @@ ruff check src/ tests/
 
 ## Tech stack
 
-Python 3.11 · `anthropic` (Claude Haiku) · `langgraph` / `langchain-anthropic` · `pydantic` v2 + `pydantic-settings` · `httpx` (async clients) · `beautifulsoup4` (EDGAR parsing) · `fastapi` / `uvicorn` · Docker. Tested with `pytest` + `pytest-asyncio`, linted with `ruff`.
+Python 3.11 · `anthropic` (Claude Haiku) · `pydantic` v2 + `pydantic-settings` · `httpx` (async clients) · `beautifulsoup4` + `lxml` (EDGAR parsing) · `fastapi` / `uvicorn` · Docker. Tested with `pytest` + `pytest-asyncio`, linted with `ruff`.
 
 ## License
 
