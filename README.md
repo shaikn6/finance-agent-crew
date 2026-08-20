@@ -62,7 +62,7 @@ flowchart TD
 |------|--------|-------|
 | `SECEdgarScraper` | SEC EDGAR | XBRL financial facts + recent 10-K / 10-Q filings; async context manager |
 | `MarketDataClient` | Alpha Vantage | Company overview, real-time quote, 12-month monthly OHLCV |
-| `NewsFetcher` | News / RSS | Recent headlines + earnings-call snippets |
+| `NewsFetcher` | DuckDuckGo search + RSS (Yahoo Finance, Seeking Alpha) | Recent headlines + earnings-call snippets |
 
 ## How it works
 
