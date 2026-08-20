@@ -109,6 +109,21 @@ report = asyncio.run(research("AAPL"))
 print(report.overall_signal, report.executive_summary)
 ```
 
+Or run the pipeline over HTTP with the bundled FastAPI app:
+
+```bash
+uvicorn src.api.main:app --reload
+```
+
+```bash
+curl http://127.0.0.1:8000/health
+# {"status":"ok"}
+
+curl -X POST http://127.0.0.1:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"ticker": "AAPL"}'
+```
+
 Tests and lint:
 
 ```bash
