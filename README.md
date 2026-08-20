@@ -80,7 +80,7 @@ The schema and agent contracts are covered by **231 tests** (`pytest tests/ --co
 ```bash
 git clone https://github.com/shaikn6/finance-agent-crew
 cd finance-agent-crew
-cp .env.example .env          # set ANTHROPIC_API_KEY, ALPHA_VANTAGE_KEY, NEWS_API_KEY
+cp .env.example .env          # set ANTHROPIC_API_KEY, ALPHA_VANTAGE_API_KEY
 pip install -e ".[dev]"
 ```
 
