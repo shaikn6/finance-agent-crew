@@ -5,6 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from ..config import get_settings
+from ..offline import (
+    OfflineMarketDataClient,
+    OfflineNewsFetcher,
+    OfflineSECEdgarScraper,
+)
 from ..tools.market_data import MarketDataClient
 from ..tools.news_fetcher import NewsFetcher
 from ..tools.sec_scraper import SECEdgarScraper
@@ -31,6 +37,7 @@ class DataGathererAgent:
         self._include_sec = include_sec
         self._include_market = include_market
         self._alpha_vantage_api_key = alpha_vantage_api_key
+        self._offline = get_settings().offline_mode
 
     async def gather(self, ticker: str) -> dict[str, Any]:
         """Collect all available financial data for a ticker.
@@ -112,7 +119,8 @@ class DataGathererAgent:
     # ------------------------------------------------------------------
 
     async def _fetch_sec(self, ticker: str) -> dict[str, Any]:
-        async with SECEdgarScraper() as scraper:
+        scraper_cls = OfflineSECEdgarScraper if self._offline else SECEdgarScraper
+        async with scraper_cls() as scraper:
             summary = await scraper.get_financial_summary(ticker)
             filings = await scraper.get_recent_filings(ticker, ["10-K", "10-Q"])
         return {
@@ -121,7 +129,8 @@ class DataGathererAgent:
         }
 
     async def _fetch_market(self, ticker: str) -> dict[str, Any]:
-        async with MarketDataClient(api_key=self._alpha_vantage_api_key) as client:
+        client_cls = OfflineMarketDataClient if self._offline else MarketDataClient
+        async with client_cls(api_key=self._alpha_vantage_api_key) as client:
             overview = await client.get_company_overview(ticker)
             quote = await client.get_quote(ticker)
             history = await client.get_monthly_prices(ticker, months=12)
@@ -132,7 +141,8 @@ class DataGathererAgent:
         }
 
     async def _fetch_news(self, ticker: str, company_name: str) -> dict[str, Any]:
-        async with NewsFetcher() as fetcher:
+        fetcher_cls = OfflineNewsFetcher if self._offline else NewsFetcher
+        async with fetcher_cls() as fetcher:
             headlines = await fetcher.fetch_headlines(
                 ticker, company_name=company_name, max_results=20
             )

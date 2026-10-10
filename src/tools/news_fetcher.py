@@ -5,20 +5,24 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 from urllib.parse import quote_plus
 
 import httpx
 from bs4 import BeautifulSoup
 
+from ..config import get_settings
+
 logger = logging.getLogger(__name__)
 
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (compatible; FinanceAgentCrew/1.0; research@example.com)"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-}
+
+def _build_headers() -> dict[str, str]:
+    contact = get_settings().sec_user_agent_contact
+    return {
+        "User-Agent": f"Mozilla/5.0 (compatible; FinanceAgentCrew/1.0; {contact})",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
 
 # Free financial RSS feeds
 _RSS_SOURCES = {
@@ -37,15 +41,15 @@ class NewsFetcher:
 
     def __init__(self, timeout: float = 20.0) -> None:
         self._client = httpx.AsyncClient(
-            headers=_HEADERS,
+            headers=_build_headers(),
             timeout=timeout,
             follow_redirects=True,
         )
 
-    async def __aenter__(self) -> "NewsFetcher":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *args: object) -> None:
         await self._client.aclose()
 
     # ------------------------------------------------------------------
@@ -111,10 +115,7 @@ class NewsFetcher:
             resp = await self._client.post(
                 _DDG_SEARCH_URL,
                 data={"q": query, "b": "", "kl": "us-en"},
-                headers={
-                    **_HEADERS,
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
             if resp.status_code != 200:
                 logger.warning("DDG returned status %s", resp.status_code)
@@ -148,7 +149,7 @@ class NewsFetcher:
                 )
 
             return results
-        except Exception as exc:
+        except httpx.HTTPError as exc:
             logger.warning("DuckDuckGo search failed: %s", exc)
             return []
 
@@ -196,7 +197,7 @@ class NewsFetcher:
                     )
 
             return items
-        except Exception as exc:
+        except httpx.HTTPError as exc:
             logger.warning("Yahoo RSS fetch failed for %s: %s", ticker, exc)
             return []
 

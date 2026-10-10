@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
-import anthropic
-
+from ..config import get_settings
+from ..llm import LLMError, complete, get_llm_client
 from ..models.schemas import (
     FundamentalAnalysis,
     InvestmentReport,
@@ -19,17 +18,13 @@ from ..models.schemas import (
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
-
 
 class ReportWriterAgent:
     """Synthesizes fundamental, sentiment, and risk analyses into an investment brief."""
 
     def __init__(self, model: str | None = None) -> None:
-        self._model = model or _DEFAULT_MODEL
-        self._client = anthropic.AsyncAnthropic(
-            api_key=os.environ.get("ANTHROPIC_API_KEY")
-        )
+        self._model = model or get_settings().anthropic_model
+        self._client = get_llm_client()
 
     async def write(
         self,
@@ -53,7 +48,12 @@ class ReportWriterAgent:
         """
         raw_data = raw_data or {}
         overview = raw_data.get("market_overview", {})
-        company_name = overview.get("name", ticker)
+        company_name = (
+            overview.get("name")
+            or overview.get("company_name")
+            or raw_data.get("company_name")
+            or ticker
+        )
         sector = overview.get("sector", "")
         industry = overview.get("industry", "")
 
@@ -79,15 +79,41 @@ class ReportWriterAgent:
             '"bull_case": "...", "bear_case": "..."}'
         )
 
-        message = await self._client.messages.create(
-            model=self._model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": "\n".join(prompt_parts)}],
-        )
-        raw = message.content[0].text
+        try:
+            raw = await complete(
+                self._client, model=self._model, prompt="\n".join(prompt_parts)
+            )
+        except LLMError as exc:
+            logger.error("ReportWriter LLM call failed for %s: %s", ticker, exc)
+            return _failed_report(
+                ticker, company_name, sector, industry, fundamental, sentiment, risk
+            )
         return _parse_report_response(
             raw, ticker, company_name, sector, industry, fundamental, sentiment, risk
         )
+
+
+def _failed_report(
+    ticker: str,
+    company_name: str,
+    sector: str,
+    industry: str,
+    fundamental: FundamentalAnalysis | None,
+    sentiment: SentimentAnalysis | None,
+    risk: RiskAssessment | None,
+) -> InvestmentReport:
+    """Fallback report that keeps the analyses but carries no synthesis."""
+    return InvestmentReport(
+        ticker=ticker,
+        company_name=company_name,
+        sector=sector,
+        industry=industry,
+        fundamental_analysis=fundamental,
+        sentiment_analysis=sentiment,
+        risk_assessment=risk,
+        overall_signal=Signal.INSUFFICIENT_DATA,
+        executive_summary="Report generation failed.",
+    )
 
 
 def _parse_report_response(
@@ -127,16 +153,9 @@ def _parse_report_response(
             bull_case=data.get("bull_case", ""),
             bear_case=data.get("bear_case", ""),
         )
-    except (json.JSONDecodeError, KeyError, ValueError):
+    except (ValueError, AttributeError, TypeError):
+        # ValueError covers both JSONDecodeError and pydantic's ValidationError.
         logger.warning("Failed to parse report response for %s", ticker)
-        return InvestmentReport(
-            ticker=ticker,
-            company_name=company_name,
-            sector=sector,
-            industry=industry,
-            fundamental_analysis=fundamental,
-            sentiment_analysis=sentiment,
-            risk_assessment=risk,
-            overall_signal=Signal.INSUFFICIENT_DATA,
-            executive_summary="Report generation failed.",
+        return _failed_report(
+            ticker, company_name, sector, industry, fundamental, sentiment, risk
         )

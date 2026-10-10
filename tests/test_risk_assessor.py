@@ -137,3 +137,38 @@ class TestRiskAssessorAgentAssess:
         result = await agent.assess({})
         assert isinstance(result, RiskAssessment)
         assert result.ticker == "UNKNOWN"
+
+
+class TestRiskAssessorDegradesGracefully:
+    """A failing or misbehaving LLM must never take the run down."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [RuntimeError("boom"), TimeoutError("slow"), ConnectionError("net down")],
+    )
+    async def test_llm_failure_returns_fallback(self, error):
+        agent = RiskAssessorAgent()
+        agent._client = AsyncMock()
+        agent._client.messages.create = AsyncMock(side_effect=error)
+
+        result = await agent.assess({"ticker": "AAPL"})
+        assert isinstance(result, RiskAssessment)
+        assert result.ticker == "AAPL"
+        assert result.risk_factors == []
+        assert result.overall_risk_level == "medium"
+        assert result.key_risks_summary == "Risk assessment unavailable."
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "[1, 2, 3]",
+            '{"risk_factors": "not-a-list-of-dicts"}',
+            '{"risk_factors": [{"severity": null}]}',
+            '{"risk_factors": [], "overall_risk_level": 5}',
+        ],
+    )
+    def test_malformed_json_shape_returns_fallback(self, raw):
+        result = _parse_risk_response(raw, "AAPL")
+        assert result.risk_factors == []
+        assert result.overall_risk_level == "medium"
+        assert result.key_risks_summary == "Risk assessment unavailable."

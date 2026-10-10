@@ -1,24 +1,24 @@
 """Tests for src/models/schemas.py — Pydantic models and validators."""
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from src.models.schemas import (
-    Signal,
-    Tone,
-    JobStatusEnum,
     FundamentalAnalysis,
-    SentimentAnalysis,
-    RiskFactor,
-    RiskAssessment,
     InvestmentReport,
+    JobStatus,
+    JobStatusEnum,
     ResearchRequest,
     ResearchResponse,
-    JobStatus,
+    RiskAssessment,
+    RiskFactor,
+    SentimentAnalysis,
+    Signal,
+    Tone,
 )
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -89,7 +89,7 @@ class TestFundamentalAnalysis:
             current_ratio=2.1,
             signal=Signal.BUY,
             reasoning="Strong fundamentals.",
-            data_as_of=datetime.now(tz=timezone.utc),
+            data_as_of=datetime.now(tz=UTC),
         )
         assert fa.pe_ratio == 30.5
         assert fa.signal == Signal.BUY
@@ -140,7 +140,7 @@ class TestSentimentAnalysis:
             bullish_signals=["Revenue beat"],
             bearish_signals=["Margin pressure"],
             reasoning="Overall positive.",
-            analyzed_at=datetime.now(tz=timezone.utc),
+            analyzed_at=datetime.now(tz=UTC),
         )
         assert sa.management_tone == Tone.POSITIVE
         assert len(sa.key_themes) == 2
@@ -274,7 +274,6 @@ class TestResearchRequest:
         req = ResearchRequest(ticker="GOOG")
         assert req.include_news is True
         assert req.include_sec_filings is True
-        assert req.depth == "standard"
 
     def test_empty_ticker_raises(self):
         with pytest.raises(ValidationError):
@@ -284,14 +283,39 @@ class TestResearchRequest:
         with pytest.raises(ValidationError):
             ResearchRequest(ticker="A" * 11)
 
-    def test_invalid_depth_raises(self):
-        with pytest.raises(ValidationError):
-            ResearchRequest(ticker="AAPL", depth="ultra")
+    @pytest.mark.parametrize(
+        "ticker", ["AAPL", "BRK.B", "BF-B", "7203.T", "A", "ABCDEFGHIJ"]
+    )
+    def test_valid_ticker_formats(self, ticker):
+        assert ResearchRequest(ticker=ticker).ticker == ticker
 
-    def test_valid_depths(self):
-        for depth in ("quick", "standard", "deep"):
-            req = ResearchRequest(ticker="T", depth=depth)
-            assert req.depth == depth
+    @pytest.mark.parametrize(
+        "ticker", ["AAPL$", "AA PL", "../etc", "-AAPL", ".AAPL", "AAPL;", "A\nB", "   "]
+    )
+    def test_invalid_ticker_characters_raise(self, ticker):
+        with pytest.raises(ValidationError):
+            ResearchRequest(ticker=ticker)
+
+    def test_non_string_ticker_raises(self):
+        with pytest.raises(ValidationError):
+            ResearchRequest(ticker=123)
+
+    def test_depth_field_removed(self):
+        assert "depth" not in ResearchRequest.model_fields
+
+
+class TestTimestampDefaults:
+    def test_defaults_are_timezone_aware(self):
+        report = InvestmentReport(ticker="AAPL")
+        response = ResearchResponse(job_id="j", ticker="AAPL")
+        status = JobStatus(
+            job_id="j",
+            status=JobStatusEnum.PENDING,
+            ticker="AAPL",
+            created_at=response.created_at,
+        )
+        for value in (report.report_date, response.created_at, status.updated_at):
+            assert value.utcoffset() == timedelta(0)
 
 
 # ---------------------------------------------------------------------------
@@ -333,7 +357,7 @@ class TestResearchResponse:
 
 class TestJobStatus:
     def test_construction(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         js = JobStatus(
             job_id="j1",
             status=JobStatusEnum.RUNNING,
@@ -346,7 +370,7 @@ class TestJobStatus:
         assert js.current_step == "fundamental_analysis"
 
     def test_progress_bounds(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         with pytest.raises(ValidationError):
             JobStatus(job_id="j", status=JobStatusEnum.PENDING, ticker="T",
                       progress=-1, created_at=now)
@@ -355,7 +379,7 @@ class TestJobStatus:
                       progress=101, created_at=now)
 
     def test_max_progress(self):
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         js = JobStatus(
             job_id="j", status=JobStatusEnum.COMPLETED, ticker="T",
             progress=100, created_at=now

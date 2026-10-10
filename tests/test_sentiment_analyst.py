@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.models.schemas import Tone
+import pytest
+
 from src.agents.sentiment_analyst import (
     SentimentAnalystAgent,
     _build_sentiment_prompt,
     _parse_json_response,
 )
-
+from src.models.schemas import Tone
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -297,3 +297,27 @@ class TestParseJsonResponse:
         data = {**CLAUDE_POSITIVE_RESPONSE, "key_themes": ["AI", "Cloud", "Mobile"]}
         result = _parse_json_response(json.dumps(data))
         assert result["key_themes"] == ["AI", "Cloud", "Mobile"]
+
+
+class TestSentimentDegradesGracefully:
+    """Out-of-contract LLM output must not raise out of the analyst."""
+
+    @pytest.mark.parametrize(
+        "response",
+        [
+            {"management_tone": "euphoric", "news_sentiment_score": 0.2},
+            {"management_tone": "positive", "news_sentiment_score": 7},
+            {"management_tone": "positive", "news_sentiment_score": "high"},
+            {"management_tone": "positive", "key_themes": "not-a-list"},
+            ["not", "an", "object"],
+        ],
+    )
+    async def test_invalid_fields_fall_back_to_neutral(self, response):
+        agent = SentimentAnalystAgent()
+        agent._client = _make_claude_client(response)
+
+        result = await agent.analyze(RAW_DATA_FULL)
+        assert result.ticker == "AAPL"
+        assert result.management_tone == Tone.NEUTRAL
+        assert result.news_sentiment_score == 0.0
+        assert "unavailable" in result.reasoning

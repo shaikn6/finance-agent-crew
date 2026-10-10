@@ -4,17 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import UTC, datetime
 from typing import Any
 
-import anthropic
-
+from ..config import get_settings
+from ..llm import LLMError, complete, get_llm_client
 from ..models.schemas import FundamentalAnalysis, Signal
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
 
 
 class FundamentalAnalystAgent:
@@ -28,8 +25,8 @@ class FundamentalAnalystAgent:
     """
 
     def __init__(self, model: str | None = None) -> None:
-        self._model = model or _DEFAULT_MODEL
-        self._client = anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        self._model = model or get_settings().anthropic_model
+        self._client = get_llm_client()
 
     async def analyze(self, raw_data: dict[str, Any]) -> FundamentalAnalysis:
         """Run fundamental analysis on gathered raw data.
@@ -43,7 +40,6 @@ class FundamentalAnalystAgent:
         ticker = raw_data.get("ticker", "UNKNOWN")
         overview = raw_data.get("market_overview", {})
         sec = raw_data.get("sec_summary", {}).get("financials", {})
-        quote = raw_data.get("current_quote", {})
         rev_history = raw_data.get("sec_summary", {}).get("revenue_history", [])
 
         # ------------------------------------------------------------------
@@ -112,16 +108,11 @@ class FundamentalAnalystAgent:
         """Ask Claude to interpret the ratios and return a signal."""
         prompt = _build_fundamental_prompt(ticker, ratios, overview, sec)
         try:
-            message = await self._client.messages.create(
-                model=self._model,
-                max_tokens=1024,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = message.content[0].text.strip()
-            return _parse_signal_response(raw)
-        except Exception as exc:
+            raw = await complete(self._client, model=self._model, prompt=prompt)
+        except LLMError as exc:
             logger.error("FundamentalAnalyst Claude call failed: %s", exc)
             return Signal.INSUFFICIENT_DATA, f"Analysis unavailable: {exc}"
+        return _parse_signal_response(raw.strip())
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +166,7 @@ def _parse_signal_response(raw: str) -> tuple[Signal, str]:
         )
         reasoning = data.get("reasoning", "")
         return signal, reasoning
-    except Exception as exc:
+    except (ValueError, AttributeError, TypeError) as exc:
         logger.warning("Failed to parse fundamental signal response: %s", exc)
         return Signal.INSUFFICIENT_DATA, raw[:500]
 
