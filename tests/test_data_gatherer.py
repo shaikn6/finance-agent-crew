@@ -1,9 +1,9 @@
 """Tests for src/agents/data_gatherer.py — DataGathererAgent."""
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

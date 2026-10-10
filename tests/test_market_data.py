@@ -1,13 +1,12 @@
 """Tests for src/tools/market_data.py — MarketDataClient."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import pytest
 
 from src.tools.market_data import MarketDataClient, _safe_float, _safe_int
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

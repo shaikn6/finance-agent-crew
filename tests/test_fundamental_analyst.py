@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.models.schemas import Signal
+import pytest
+
 from src.agents.fundamental_analyst import (
     FundamentalAnalystAgent,
     _build_fundamental_prompt,
+    _cagr,
+    _margin,
     _parse_signal_response,
     _pct,
-    _margin,
     _ratio,
-    _cagr,
 )
-
+from src.models.schemas import Signal
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -251,19 +251,19 @@ class TestParseSignalResponse:
 
     def test_parses_sell_signal(self):
         raw = json.dumps({"signal": "SELL", "reasoning": "Overvalued."})
-        signal, reasoning = _parse_signal_response(raw)
+        signal, _ = _parse_signal_response(raw)
         assert signal == Signal.SELL
 
     def test_parses_hold_signal(self):
         raw = json.dumps({"signal": "HOLD", "reasoning": "Mixed signals."})
-        signal, reasoning = _parse_signal_response(raw)
+        signal, _ = _parse_signal_response(raw)
         assert signal == Signal.HOLD
 
     def test_strips_markdown_code_fences(self):
         raw = (
             "```json\n" + json.dumps({"signal": "BUY", "reasoning": "Good."}) + "\n```"
         )
-        signal, reasoning = _parse_signal_response(raw)
+        signal, _ = _parse_signal_response(raw)
         assert signal == Signal.BUY
 
     def test_invalid_signal_returns_insufficient(self):

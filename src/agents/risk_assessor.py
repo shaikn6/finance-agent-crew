@@ -4,26 +4,21 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any
 
-import anthropic
-
+from ..config import get_settings
+from ..llm import LLMError, complete, get_llm_client
 from ..models.schemas import RiskAssessment, RiskFactor
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
 
 
 class RiskAssessorAgent:
     """Identifies and scores investment risk factors using Claude."""
 
     def __init__(self, model: str | None = None) -> None:
-        self._model = model or _DEFAULT_MODEL
-        self._client = anthropic.AsyncAnthropic(
-            api_key=os.environ.get("ANTHROPIC_API_KEY")
-        )
+        self._model = model or get_settings().anthropic_model
+        self._client = get_llm_client()
 
     async def assess(self, raw_data: dict[str, Any]) -> RiskAssessment:
         """Assess investment risks for a given ticker.
@@ -48,13 +43,21 @@ class RiskAssessorAgent:
             '"overall_risk_level": "low|medium|high|critical", "key_risks_summary": "..."}'
         )
 
-        message = await self._client.messages.create(
-            model=self._model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = message.content[0].text
+        try:
+            raw = await complete(self._client, model=self._model, prompt=prompt)
+        except LLMError as exc:
+            logger.error("RiskAssessor LLM call failed for %s: %s", ticker, exc)
+            return _unavailable(ticker)
         return _parse_risk_response(raw, ticker)
+
+
+def _unavailable(ticker: str) -> RiskAssessment:
+    return RiskAssessment(
+        ticker=ticker,
+        risk_factors=[],
+        overall_risk_level="medium",
+        key_risks_summary="Risk assessment unavailable.",
+    )
 
 
 def _parse_risk_response(raw: str, ticker: str) -> RiskAssessment:
@@ -65,27 +68,22 @@ def _parse_risk_response(raw: str, ticker: str) -> RiskAssessment:
         text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     try:
         data = json.loads(text)
-    except json.JSONDecodeError:
-        logger.warning("Failed to parse risk response for %s", ticker)
+        factors = [
+            RiskFactor(
+                category=f.get("category", "market"),
+                description=f.get("description", ""),
+                severity=f.get("severity", "medium"),
+                probability=f.get("probability", "medium"),
+            )
+            for f in data.get("risk_factors", [])
+        ]
         return RiskAssessment(
             ticker=ticker,
-            risk_factors=[],
-            overall_risk_level="medium",
-            key_risks_summary="Risk assessment unavailable.",
+            risk_factors=factors,
+            overall_risk_level=data.get("overall_risk_level", "medium"),
+            key_risks_summary=data.get("key_risks_summary", ""),
         )
-
-    factors = [
-        RiskFactor(
-            category=f.get("category", "market"),
-            description=f.get("description", ""),
-            severity=f.get("severity", "medium"),
-            probability=f.get("probability", "medium"),
-        )
-        for f in data.get("risk_factors", [])
-    ]
-    return RiskAssessment(
-        ticker=ticker,
-        risk_factors=factors,
-        overall_risk_level=data.get("overall_risk_level", "medium"),
-        key_risks_summary=data.get("key_risks_summary", ""),
-    )
+    except (ValueError, AttributeError, TypeError):
+        # ValueError covers both JSONDecodeError and pydantic's ValidationError.
+        logger.warning("Failed to parse risk response for %s", ticker)
+        return _unavailable(ticker)

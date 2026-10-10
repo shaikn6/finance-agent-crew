@@ -209,3 +209,53 @@ class TestReportWriterAgentWrite:
         ]
         assert "0.60" in prompt
         assert f"{risk.overall_risk_score:.2f}" in prompt
+
+
+class TestReportWriterDegradesGracefully:
+    """A failing or misbehaving LLM must never take the run down."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [RuntimeError("boom"), TimeoutError("slow"), ConnectionError("net down")],
+    )
+    async def test_llm_failure_returns_fallback_report(self, error):
+        agent = ReportWriterAgent()
+        agent._client = AsyncMock()
+        agent._client.messages.create = AsyncMock(side_effect=error)
+        fundamental = _make_fundamental()
+
+        result = await agent.write(
+            "AAPL",
+            fundamental=fundamental,
+            raw_data={"market_overview": {"sector": "Tech"}},
+        )
+        assert isinstance(result, InvestmentReport)
+        assert result.overall_signal == Signal.INSUFFICIENT_DATA
+        assert result.executive_summary == "Report generation failed."
+        assert result.sector == "Tech"
+        assert result.fundamental_analysis is fundamental
+
+    @pytest.mark.parametrize("raw", ["[1, 2]", '{"overall_signal": 7}', '"text"'])
+    def test_malformed_json_shape_returns_fallback(self, raw):
+        result = _parse_report_response(
+            raw, "AAPL", "Apple", "Tech", "Software", None, None, None
+        )
+        assert result.overall_signal == Signal.INSUFFICIENT_DATA
+        assert result.executive_summary == "Report generation failed."
+
+    async def test_company_name_from_gatherer_bundle(self):
+        """DataGathererAgent publishes the name as `company_name`."""
+        agent = ReportWriterAgent()
+        mock_msg = MagicMock()
+        mock_msg.content = [MagicMock(text=json.dumps({"overall_signal": "HOLD"}))]
+        agent._client = AsyncMock()
+        agent._client.messages.create = AsyncMock(return_value=mock_msg)
+
+        result = await agent.write(
+            "AAPL",
+            raw_data={
+                "company_name": "Apple Inc.",
+                "market_overview": {"company_name": "Apple Inc."},
+            },
+        )
+        assert result.company_name == "Apple Inc."

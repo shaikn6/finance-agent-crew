@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import logging
-import os
-from typing import Any
+from typing import Any, Self
 
 import httpx
+
+from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
 _AV_BASE = "https://www.alphavantage.co/query"
-_DEFAULT_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")
 
 
 class MarketDataClient:
@@ -28,13 +28,13 @@ class MarketDataClient:
         api_key: str | None = None,
         timeout: float = 20.0,
     ) -> None:
-        self._api_key = api_key or _DEFAULT_API_KEY
+        self._api_key = api_key or get_settings().alpha_vantage_api_key
         self._client = httpx.AsyncClient(timeout=timeout)
 
-    async def __aenter__(self) -> "MarketDataClient":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *args: object) -> None:
         await self._client.aclose()
 
     # ------------------------------------------------------------------
@@ -179,7 +179,8 @@ class MarketDataClient:
         except httpx.HTTPStatusError as exc:
             logger.error("Alpha Vantage HTTP error: %s", exc)
             return {}
-        except Exception as exc:
+        except (httpx.HTTPError, ValueError) as exc:
+            # ValueError: the body was not valid JSON.
             logger.error("Alpha Vantage request failed: %s", exc)
             return {}
 
@@ -189,7 +190,7 @@ class MarketDataClient:
 # ---------------------------------------------------------------------------
 
 
-def _safe_float(value: Any) -> float | None:  # noqa: ANN401
+def _safe_float(value: Any) -> float | None:
     if value is None or value == "None" or value == "-":
         return None
     try:
@@ -198,7 +199,7 @@ def _safe_float(value: Any) -> float | None:  # noqa: ANN401
         return None
 
 
-def _safe_int(value: Any) -> int | None:  # noqa: ANN401
+def _safe_int(value: Any) -> int | None:
     if value is None or value == "None":
         return None
     try:

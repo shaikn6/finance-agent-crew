@@ -1,19 +1,17 @@
 """Tests for src/tools/sec_scraper.py — SECEdgarScraper."""
 from __future__ import annotations
 
-import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import pytest
 
 from src.tools.sec_scraper import (
     SECEdgarScraper,
-    _text,
     _coalesce,
     _find_revenue_concept,
+    _text,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+def _utcnow() -> datetime:
+    return datetime.now(tz=UTC)
+
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -115,7 +120,7 @@ class InvestmentReport(BaseModel):
     company_name: str = ""
     sector: str = ""
     industry: str = ""
-    report_date: datetime = Field(default_factory=datetime.utcnow)
+    report_date: datetime = Field(default_factory=_utcnow)
 
     # Composed analyses
     fundamental_analysis: FundamentalAnalysis | None = None
@@ -157,23 +162,22 @@ class InvestmentReport(BaseModel):
 
 
 class ResearchRequest(BaseModel):
-    ticker: str = Field(..., min_length=1, max_length=10, examples=["AAPL", "MSFT"])
+    ticker: str = Field(
+        ...,
+        min_length=1,
+        max_length=10,
+        pattern=r"^[A-Z0-9][A-Z0-9.\-]*$",
+        examples=["AAPL", "BRK.B"],
+        description="Ticker symbol: letters, digits, dot or hyphen (max 10 chars)",
+    )
     include_news: bool = True
     include_sec_filings: bool = True
-    depth: str = Field("standard", description="quick | standard | deep")
 
-    @field_validator("ticker")
+    @field_validator("ticker", mode="before")
     @classmethod
-    def uppercase_ticker(cls, v: str) -> str:
-        return v.strip().upper()
-
-    @field_validator("depth")
-    @classmethod
-    def validate_depth(cls, v: str) -> str:
-        allowed = {"quick", "standard", "deep"}
-        if v not in allowed:
-            raise ValueError(f"depth must be one of {allowed}")
-        return v
+    def uppercase_ticker(cls, v: object) -> object:
+        """Normalise case and surrounding whitespace before the pattern check."""
+        return v.strip().upper() if isinstance(v, str) else v
 
 
 class ResearchResponse(BaseModel):
@@ -182,7 +186,7 @@ class ResearchResponse(BaseModel):
     status: JobStatusEnum = JobStatusEnum.PENDING
     report: InvestmentReport | None = None
     error: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
     completed_at: datetime | None = None
     duration_seconds: float | None = None
 
@@ -194,4 +198,4 @@ class JobStatus(BaseModel):
     progress: int = Field(0, ge=0, le=100, description="Completion percentage")
     current_step: str = ""
     created_at: datetime
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)

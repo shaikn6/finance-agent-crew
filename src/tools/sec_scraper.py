@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from bs4 import BeautifulSoup
+
+from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
 _EDGAR_BASE = "https://data.sec.gov"
 _EDGAR_SEARCH = "https://efts.sec.gov/LATEST/search-index"
-_HEADERS = {
-    "User-Agent": "FinanceAgentCrew research@example.com",
-    "Accept-Encoding": "gzip, deflate",
-}
 
 # Common XBRL concept tags for financial data
 _INCOME_CONCEPTS = [
@@ -44,19 +42,25 @@ class SECEdgarScraper:
 
     All requests use the free, unauthenticated SEC EDGAR data endpoints.
     Rate limit: max 10 requests/second per SEC fair-use policy.
+    SEC asks automated clients to identify themselves: set
+    SEC_USER_AGENT_CONTACT to a real contact e-mail address.
     """
 
     def __init__(self, timeout: float = 30.0) -> None:
+        contact = get_settings().sec_user_agent_contact
         self._client = httpx.AsyncClient(
-            headers=_HEADERS,
+            headers={
+                "User-Agent": f"FinanceAgentCrew {contact}",
+                "Accept-Encoding": "gzip, deflate",
+            },
             timeout=timeout,
             follow_redirects=True,
         )
 
-    async def __aenter__(self) -> "SECEdgarScraper":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args: Any) -> None:
+    async def __aexit__(self, *args: object) -> None:
         await self._client.aclose()
 
     # ------------------------------------------------------------------
@@ -276,7 +280,7 @@ def _text(tag: Any, name: str) -> str:
     return el.get_text(strip=True) if el else ""
 
 
-def _coalesce(d: dict[str, Any], keys: list[str]) -> Any:  # noqa: ANN401
+def _coalesce(d: dict[str, Any], keys: list[str]) -> Any:
     for k in keys:
         if k in d and d[k] is not None:
             return d[k]

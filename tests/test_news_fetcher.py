@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
+
 from src.tools.news_fetcher import (
     NewsFetcher,
     _extract_ddg_url,
@@ -234,7 +235,7 @@ class TestFetchEarningsSnippets:
         fetcher = NewsFetcher()
         fetcher._client = AsyncMock()
         fetcher._client.aclose = AsyncMock()
-        fetcher._client.post = AsyncMock(side_effect=Exception("network error"))
+        fetcher._client.post = AsyncMock(side_effect=httpx.ReadTimeout("network error"))
         fetcher._client.get = AsyncMock(return_value=_mock_response(status_code=404))
 
         snippets = await fetcher.fetch_earnings_snippets("FAIL")
@@ -291,7 +292,7 @@ class TestYahooRSS:
         fetcher = NewsFetcher()
         fetcher._client = AsyncMock()
         fetcher._client.aclose = AsyncMock()
-        fetcher._client.get = AsyncMock(side_effect=Exception("network error"))
+        fetcher._client.get = AsyncMock(side_effect=httpx.ReadTimeout("network error"))
 
         items = await fetcher._yahoo_rss("AAPL")
         assert items == []
