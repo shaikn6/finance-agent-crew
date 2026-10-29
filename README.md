@@ -33,7 +33,7 @@ flowchart TD
     DG --> SEC
     DG --> MKT
     DG --> NEWS
-    SEC --> BUNDLE[(Raw data bundle<br/>dict + errors[])]
+    SEC --> BUNDLE[("Raw data bundle<br/>dict + errors[]")]
     MKT --> BUNDLE
     NEWS --> BUNDLE
 
