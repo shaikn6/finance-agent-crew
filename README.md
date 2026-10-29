@@ -1,19 +1,20 @@
 <p align="center"><img src=".github/banner.png" alt="finance-agent-crew" width="100%"></p>
 
-<div align="center">
-
-# Finance Agent Crew
+# finance-agent-crew
 
 [![CI](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
-[![Pydantic](https://img.shields.io/badge/Pydantic-v2-e92063)](https://docs.pydantic.dev/)
-[![Anthropic](https://img.shields.io/badge/Claude-Haiku-d97757)](https://docs.anthropic.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](docker-compose.yml)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 
-**A multi-agent crew that turns a stock ticker into a structured, sourced equity research brief — fan-out data collection (SEC EDGAR, Alpha Vantage, news), three specialist analysts running in parallel, and a synthesizing report writer that emits a BUY / HOLD / SELL signal.**
+**A multi-agent crew that turns a stock ticker into a structured, sourced equity research brief: concurrent data collection (SEC EDGAR, Alpha Vantage, news), three specialist analyst agents running in parallel, and a report writer that synthesizes a BUY / HOLD / SELL signal.**
 
-</div>
+Live mode calls Claude and the public data sources; offline mode swaps every LLM call and data tool for in-repo fixtures, so the whole pipeline and its HTTP API run with no keys and no network. The [Quickstart](#quickstart) returns a full report in one `curl`. The suite has 333 tests at 99% line coverage, and no test calls a real LLM or external service.
+
+The signal is the output of a research pipeline, not investment advice: it has not been evaluated against later market returns.
+
+## Why this exists
+
+Most multi-agent demos are a chain of free-text prompts that fails as soon as one model reply is malformed. This crew is built the other way round: data gathering is plain concurrent I/O with no LLM, each analyst makes one bounded call that must return strict JSON into a Pydantic model, and any failed or malformed call degrades to a neutral default instead of ending the run. It shows how to keep an agent pipeline typed, testable and cheap (one Haiku call per analyst).
 
 ## Architecture
 
@@ -231,6 +232,14 @@ CI runs the same three checks plus a Docker image build; none of them is allowed
 ## Tech stack
 
 Python 3.11 · `anthropic` (Claude Haiku) · `pydantic` v2 + `pydantic-settings` · `httpx` (async clients) · `beautifulsoup4` + `lxml` (EDGAR parsing) · `fastapi` / `uvicorn` · Docker. Tested with `pytest` + `pytest-asyncio`, linted with `ruff`.
+
+## What I would improve next
+
+- Evaluate the BUY / HOLD / SELL signal against subsequent returns over many tickers and dates; until then it is a structured summary, not a tested forecast.
+- Move the in-process rate limiter to a shared store so limits hold across workers and replicas.
+- Cache SEC EDGAR and Alpha Vantage responses, which change at most daily, to cut latency and API quota use.
+- Replace the search-based news fetcher with a licensed news API, so headline coverage does not depend on scraping.
+- Run long research jobs in a background queue and let clients poll by `job_id`, instead of holding the HTTP request open.
 
 ## License
 
