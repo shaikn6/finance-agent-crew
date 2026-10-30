@@ -3,7 +3,7 @@ name = "finance-agent-crew"
 version = "1.0.0"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=1.17.0",
+    "anthropic>=2.3.0",
     "fastapi>=0.152.0",
     "uvicorn[standard]>=0.54.0",
     "httpx>=0.28.1",
