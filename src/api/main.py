@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -14,13 +13,13 @@ from fastapi import Depends, FastAPI, HTTPException
 
 from .. import __version__
 from ..agents.data_gatherer import DataGathererAgent
-from ..agents.fundamental_analyst import FundamentalAnalystAgent
-from ..agents.report_writer import ReportWriterAgent
-from ..agents.risk_assessor import RiskAssessorAgent
-from ..agents.sentiment_analyst import SentimentAnalystAgent
 from ..config import get_settings
 from ..models.schemas import JobStatusEnum, ResearchRequest, ResearchResponse
+from ..pipeline import run_research
 from .security import RateLimiter, authorize
+
+# DataGathererAgent is re-exported so tests can patch src.api.main.DataGathererAgent.
+__all__ = ["DataGathererAgent", "app"]
 
 logger = logging.getLogger(__name__)
 
@@ -57,24 +56,10 @@ async def research(request: ResearchRequest) -> ResearchResponse:
     ticker = request.ticker
 
     try:
-        gatherer = DataGathererAgent(
+        report = await run_research(
+            ticker,
             include_news=request.include_news,
             include_sec=request.include_sec_filings,
-        )
-        raw_data = await gatherer.gather(ticker)
-
-        fundamental, sentiment, risk = await asyncio.gather(
-            FundamentalAnalystAgent().analyze(raw_data),
-            SentimentAnalystAgent().analyze(raw_data),
-            RiskAssessorAgent().assess(raw_data),
-        )
-
-        report = await ReportWriterAgent().write(
-            ticker,
-            fundamental=fundamental,
-            sentiment=sentiment,
-            risk=risk,
-            raw_data=raw_data,
         )
     except Exception as exc:
         # The cause is logged here; the client only ever sees a generic message.

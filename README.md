@@ -146,6 +146,17 @@ Offline responses come from fixtures, not from Claude or any market data source.
 }
 ```
 
+### Command line (no server)
+
+Run the crew for one ticker without starting the HTTP server. It defaults to the keyless offline demo, prints a typed BUY/HOLD/SELL summary, and optionally writes the full report as JSON:
+
+```bash
+python -m src DEMO                 # keyless offline demo
+python -m src AAPL --json out.json # save the full typed report
+```
+
+Set `OFFLINE_MODE=0` (with `ANTHROPIC_API_KEY` and the data-source keys) to run live analysis from the command line.
+
 ### Live mode
 
 Edit `.env`: set `OFFLINE_MODE=0`, `ANTHROPIC_API_KEY`, and at least one entry in `API_KEYS`. The server refuses to start, with a message naming what is missing, if either is absent.
