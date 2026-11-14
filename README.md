@@ -2,6 +2,8 @@
 
 # finance-agent-crew
 
+> **Point it at a ticker, get a sourced equity brief: SEC, market and news gathered in parallel by analyst agents.**
+
 [![CI](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
