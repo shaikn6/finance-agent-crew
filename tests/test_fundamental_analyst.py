@@ -385,3 +385,30 @@ class TestCAGR:
         # Only 1 year available, years=3 requested
         cagr = _cagr(history, years=3)
         assert cagr is not None
+
+    def test_unparseable_date_falls_back_to_interval_count(self):
+        # period_end strings sort but are not valid ISO dates, so the date math
+        # raises ValueError and the exponent falls back to the interval count (n=1).
+        history = [
+            {"period_end": "2020-99-99", "value": 100},
+            {"period_end": "2023-99-99", "value": 200},
+        ]
+        # (200/100) ** (1/1) - 1 = 100%
+        assert _cagr(history, years=3) == pytest.approx(100.0)
+
+    def test_missing_date_falls_back_to_interval_count(self):
+        # The oldest entry has no period_end, so the lookup raises KeyError and
+        # the exponent falls back to the interval count (n=1).
+        history = [
+            {"value": 100},
+            {"period_end": "2023-09-30", "value": 200},
+        ]
+        assert _cagr(history, years=3) == pytest.approx(100.0)
+
+    def test_zero_span_returns_none(self):
+        # Both selected entries share a period_end, so the elapsed span is zero.
+        history = [
+            {"period_end": "2023-09-30", "value": 100},
+            {"period_end": "2023-09-30", "value": 200},
+        ]
+        assert _cagr(history, years=3) is None
