@@ -2,21 +2,23 @@
 
 # finance-agent-crew
 
-> **Point it at a ticker, get a sourced equity brief: SEC, market and news gathered in parallel by analyst agents.**
+> **Point it at a ticker, get a structured equity brief: SEC, market and news gathered in parallel by analyst agents.**
 
 [![CI](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/shaikn6/finance-agent-crew/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 
-**A multi-agent crew that turns a stock ticker into a structured, sourced equity research brief: concurrent data collection (SEC EDGAR, Alpha Vantage, news), three specialist analyst agents running in parallel, and a report writer that synthesizes a BUY / HOLD / SELL signal.**
+**A multi-agent crew that turns a stock ticker into a structured equity research brief: concurrent data collection (SEC EDGAR, Alpha Vantage, news), three specialist analyst agents running in parallel, and a report writer that synthesizes a BUY / HOLD / SELL signal.**
 
-Live mode calls Claude and the public data sources; offline mode swaps every LLM call and data tool for in-repo fixtures, so the whole pipeline and its HTTP API run with no keys and no network. The [Quickstart](#quickstart) returns a full report in one `curl`. The suite has 333 tests at 99% line coverage, and no test calls a real LLM or external service.
+Live mode calls Claude and the public data sources; offline mode swaps every LLM call and data tool for in-repo fixtures, so the whole pipeline and its HTTP API run with no keys and no network. The [Quickstart](#quickstart) returns a full report in one `curl`. The suite has 340 tests at 99% line coverage, and no test calls a real LLM or external service.
 
 The signal is the output of a research pipeline, not investment advice: it has not been evaluated against later market returns.
 
 ## Why this exists
 
 Most multi-agent demos are a chain of free-text prompts that fails as soon as one model reply is malformed. This crew is built the other way round: data gathering is plain concurrent I/O with no LLM, each analyst makes one bounded call that must return strict JSON into a Pydantic model, and any failed or malformed call degrades to a neutral default instead of ending the run. It shows how to keep an agent pipeline typed, testable and cheap (one Haiku call per analyst).
+
+It is the multi-agent orchestration piece of my [fintech work](https://github.com/shaikn6?tab=repositories): where `nano-finbert` and `fin-lora` are single sentiment models and `credit-arena` and `trade-arena` are measured model bake-offs, this repo is the typed fan-out / fan-in pipeline that coordinates several LLM calls into one equity brief.
 
 ## Architecture
 
@@ -232,7 +234,9 @@ Settings are loaded with `pydantic-settings` from environment variables, then fr
 
 ## Tests
 
-**333 tests**, 99% line coverage of `src/` (CI fails below 95%). They cover the five agents, three data tools, Pydantic schemas, settings, the offline fakes, and the FastAPI app via `TestClient` (success shape, validation, auth, rate limiting, generic 502). No test calls a real LLM or external service.
+**340 tests**, 99% line coverage of `src/` (CI fails below 95%). They cover the five agents, three data tools, Pydantic schemas, settings, the offline fakes, and the FastAPI app via `TestClient` (success shape, validation, auth, rate limiting, generic 502). No test calls a real LLM or external service.
+
+> Reproduced 2026-11-15 locally (Python 3.15; CI runs 3.11): `340 passed`, 99.89% line coverage, `ruff` and `bandit` clean. The sample report above is recorded output — its timestamps and `duration_seconds` vary per run.
 
 ```bash
 pytest tests/ -v --cov=src
