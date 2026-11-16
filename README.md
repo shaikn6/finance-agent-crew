@@ -250,6 +250,13 @@ CI runs the same three checks plus a Docker image build; none of them is allowed
 
 Python 3.11 · `anthropic` (Claude Haiku) · `pydantic` v2 + `pydantic-settings` · `httpx` (async clients) · `beautifulsoup4` + `lxml` (EDGAR parsing) · `fastapi` / `uvicorn` · Docker. Tested with `pytest` + `pytest-asyncio`, linted with `ruff`.
 
+## Limitations
+
+- **The signal is unvalidated.** BUY / HOLD / SELL has never been scored against later returns, so there is no measured accuracy or hit rate to report. Treat it as a structured summary of the inputs.
+- **Offline mode proves the plumbing, not the analysis.** Its figures and analyst replies are fixed fixtures, identical for every ticker; the tests check shapes, error handling and arithmetic, not the quality of live model output.
+- **Live data is best-effort.** The `demo` Alpha Vantage key covers only a few sample tickers, the free tier is heavily rate-limited, and the news fetcher scrapes DuckDuckGo and RSS pages whose markup can change without notice. A failed source is recorded in `errors` and the analysis continues with less data.
+- **Single-process limits.** Rate limiting is in-memory per worker and each request holds the connection open for the whole pipeline.
+
 ## What I would improve next
 
 - Evaluate the BUY / HOLD / SELL signal against subsequent returns over many tickers and dates; until then it is a structured summary, not a tested forecast.
